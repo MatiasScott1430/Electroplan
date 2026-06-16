@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario Móvil — Bomberos</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2435;
+    --border: #2a3045;
+    --fire: #ff6b35;
+    --text: #e8ecf4;
+    --muted: #7a8299;
+    --success: #43d98a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 3px solid var(--fire);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .fire-icon { font-size: 32px; }
+  .header-title { font-size: 22px; font-weight: 900; color: var(--fire); }
+  .header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  main { max-width: 600px; margin: 0 auto; padding: 20px 16px; }
+
+  .meta {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .meta-num { font-size: 36px; font-weight: 900; color: var(--fire); line-height: 1; }
+  .meta-label { font-size: 12px; color: var(--muted); }
+  .meta-date { font-size: 11px; color: var(--muted); text-align: right; }
+  .meta-total { font-size: 13px; color: var(--success); font-weight: 700; }
+
+  .cat-section { margin-bottom: 20px; }
+  .cat-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+  .item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .item-qty {
+    background: var(--surface2);
+    color: var(--fire);
+    font-weight: 900;
+    font-size: 18px;
+    min-width: 36px;
+    text-align: center;
+    border-radius: 6px;
+    padding: 4px 6px;
+    line-height: 1;
+  }
+  .item-name { flex: 1; font-size: 14px; font-weight: 600; }
+  .item-obs { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+  .empty .icon { font-size: 48px; margin-bottom: 12px; }
+
+  .error-box {
+    background: #2a1a1a;
+    border: 1px solid #e8391d44;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    margin-top: 40px;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 30px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="fire-icon">🚒</div>
+  <div>
+    <div class="header-title">Bomberos — Inventario</div>
+    <div class="header-sub">Equipamiento de vehículo</div>
+  </div>
+</header>
+
+<main>
+  <div id="content">
+    <div class="empty"><div class="icon">⏳</div>Cargando inventario...</div>
+  </div>
+</main>
+
+<script>
+// Leer parámetro ?n=XX de la URL
+const params = new URLSearchParams(window.location.search);
+const numMovil = params.get('n');
+
+function render(data) {
+  if (!data || !data.items || !data.items.length) {
+    document.getElementById('content').innerHTML = `
+      <div class="error-box">
+        <div style="font-size:32px;margin-bottom:8px">📦</div>
+        <strong>Sin inventario cargado</strong><br>
+        Este móvil todavía no tiene elementos registrados.
+      </div>`;
+    return;
+  }
+
+  // Agrupar por categoría
+  const cats = {};
+  data.items.forEach(it => {
+    if (!cats[it.cat]) cats[it.cat] = [];
+    cats[it.cat].push(it);
+  });
+
+  const totalItems = data.items.reduce((s, it) => s + (it.qty || 1), 0);
+
+  let html = `
+    <div class="meta">
+      <div>
+        <div class="meta-num">${data.numero}</div>
+        <div class="meta-label">Móvil</div>
+      </div>
+      <div style="text-align:right">
+        <div class="meta-total">${totalItems} elemento${totalItems !== 1 ? 's' : ''}</div>
+        <div class="meta-date">Actualizado: ${data.actualizado || '-'}</div>
+      </div>
+    </div>`;
+
+  Object.entries(cats).forEach(([cat, items]) => {
+    html += `<div class="cat-section">
+      <div class="cat-title">${cat}</div>
+      ${items.map(it => `
+        <div class="item-row">
+          <div class="item-qty">${it.qty || 1}</div>
+          <div>
+            <div class="item-name">${it.nombre}</div>
+            ${it.obs ? `<div class="item-obs">${it.obs}</div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  });
+
+  html += `<footer>Cuerpo de Bomberos · ElectroPlan</footer>`;
+  document.getElementById('content').innerHTML = html;
+  document.title = `Móvil ${data.numero} — Bomberos`;
+}
+
+if (!numMovil) {
+  document.getElementById('content').innerHTML = `
+    <div class="error-box">
+      <strong>URL inválida</strong><br>
+      No se especificó el número de móvil.
+    </div>`;
+} else {
+  // Leer datos desde localStorage (misma app en el mismo navegador)
+  // o desde un JSON embebido si se sube por separado
+  const stored = localStorage.getItem(`electroplan_movil_${numMovil}`);
+  if (stored) {
+    try { render(JSON.parse(stored)); }
+    catch(e) { render(null); }
+  } else {
+    document.getElementById('content').innerHTML = `
+      <div class="error-box">
+        <div style="font-size:32px;margin-bottom:8px">📱</div>
+        <strong>Móvil ${numMovil} — Sin datos</strong><br><br>
+        Para ver el inventario, abrí ElectroPlan en este navegador,
+        entrá a Bomberos → Móvil ${numMovil} y tocá
+        <em>"Sincronizar datos"</em>.
+      </div>`;
+  }
+}
+</script>
+</body>
+</html>
