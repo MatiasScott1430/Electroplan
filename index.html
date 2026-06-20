@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -293,6 +294,35 @@
   }
   .codigo-num { font-size: 24px; font-weight: 900; color: var(--fire); line-height: 1; }
   .codigo-desc { font-size: 12px; color: var(--text); margin-top: 4px; }
+
+  /* ── CÓDIGOS EMERGENCIA CUARTEL ── */
+  .emergencia-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .emergencia-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .emergencia-num {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    min-width: 28px;
+  }
+  .emergencia-desc {
+    font-size: 12px;
+    color: var(--text);
+    padding-top: 2px;
+    line-height: 1.4;
+  }
 
   /* ── CLIENTES ── */
   .cliente-header {
@@ -597,9 +627,14 @@
       <div class="card-title">Códigos de radio — Sistema 10</div>
       <div class="codigo-grid" id="codigos-grid"></div>
     </div>
-    <div class="card">
+    <div class="card mb16">
       <div class="card-title">Señales de emergencia</div>
       <div id="senales-list"></div>
+    </div>
+    <!-- ── NUEVA SECCIÓN: CÓDIGOS DE EMERGENCIA CUARTEL ── -->
+    <div class="card">
+      <div class="card-title">Códigos de emergencia — Cuartel</div>
+      <div class="emergencia-grid" id="emergencia-grid"></div>
     </div>
   </div>
 
@@ -1242,7 +1277,6 @@ function generarQR(){
 
   const url=`${BASE_URL}?n=${currentMovil}`;
 
-  // Guardar datos del móvil en localStorage para que movil.html los lea
   localStorage.setItem(`electroplan_movil_${currentMovil}`, JSON.stringify({
     numero: currentMovil,
     actualizado: today(),
@@ -1252,7 +1286,6 @@ function generarQR(){
   const qrDiv=document.getElementById('qr-display');
   qrDiv.innerHTML='';
 
-  // Usar API de QR server (confiable, HTTPS, sin key)
   const img=document.createElement('img');
   const encoded=encodeURIComponent(url);
   img.src=`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encoded}&ecc=M&margin=2`;
@@ -1260,7 +1293,6 @@ function generarQR(){
   img.alt='QR Móvil '+currentMovil;
   img.style.display='block';
   img.onerror=function(){
-    // Fallback: mostrar URL para copiar
     qrDiv.innerHTML=`<div style="background:white;color:#111;padding:16px;border-radius:8px;font-size:12px;max-width:260px;word-break:break-all">
       <strong>Sin conexión para generar QR</strong><br><br>
       Copiá esta URL y generá el QR en <a href="https://qr-code-generator.com" target="_blank" style="color:#e8391d">qr-code-generator.com</a>:<br><br>
@@ -1278,164 +1310,8 @@ function imprimirQR(){
   window.print();
 }
 
-const QR_UNUSED = (function(){
-
-  // Modos y tablas de versión (solo alfanumérico/byte, versiones 1-10)
-  const EC = {M:{1:[10,16],2:[16,28],3:[26,44],4:[18,32],5:[24,43],6:[16,27],7:[18,31],8:[22,37],9:[22,37],10:[26,45]}};
-  // Capacidades byte modo M
-  const CAP = {1:14,2:26,3:42,4:62,5:84,6:106,7:122,8:154,9:182,10:216};
-
-  function getVersion(len){
-    for(let v=1;v<=10;v++) if(CAP[v]>=len) return v;
-    return 10;
-  }
-
-  // Matriz QR
-  function makeMatrix(size){ return Array.from({length:size},()=>new Array(size).fill(-1)); }
-
-  function setFinder(mat,r,c){
-    for(let i=-1;i<=7;i++) for(let j=-1;j<=7;j++){
-      if(r+i<0||r+i>=mat.length||c+j<0||c+j>=mat.length) continue;
-      mat[r+i][c+j] = (i>=0&&i<=6&&j>=0&&j<=6&&(i===0||i===6||j===0||j===6||(i>=2&&i<=4&&j>=2&&j<=4)))?1:0;
-    }
-  }
-
-  function setTiming(mat,size){
-    for(let i=8;i<size-8;i++){
-      mat[6][i]=mat[i][6]=i%2===0?1:0;
-    }
-  }
-
-  function setAlignment(mat,version){
-    const pos={2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,28,46],10:[6,28,50]};
-    if(version<2) return;
-    const locs=pos[version];
-    for(let r of locs) for(let c of locs){
-      if(mat[r][c]!==-1) continue;
-      for(let i=-2;i<=2;i++) for(let j=-2;j<=2;j++)
-        mat[r+i][c+j]=(i===-2||i===2||j===-2||j===2||!i&&!j)?1:0;
-    }
-  }
-
-  function setFormatInfo(mat,size,mask){
-    // EC level M = 00, mask pattern
-    const data=(0b00<<3)|mask;
-    const poly=0b101010000010010;
-    let d=data<<10;
-    for(let i=14;i>=10;i--) if(d&(1<<i)) d^=poly<<(i-10);
-    const bits=((data<<10)|d)^0b101010000010010;
-    const seq=[...Array(6).keys()].concat([7,8]).concat([...Array(6).keys()].map(i=>size-6+i).reverse());
-    const hseq=[...Array(6).keys()].concat([7,8]).concat([size-8,...Array(6).keys()].reverse());
-    for(let i=0;i<15;i++){
-      const b=(bits>>(14-i))&1;
-      if(i<8){ mat[seq[i]][8]=b; mat[8][hseq[14-i]]=b; }
-      else { mat[seq[i]][8]=b; mat[8][hseq[14-i]]=b; }
-    }
-    mat[size-8][8]=1;
-  }
-
-  function placeData(mat,size,bits){
-    let bi=0;
-    for(let c=size-1;c>=1;c-=2){
-      if(c===6) c=5;
-      for(let rr=0;rr<size;rr++){
-        const r=((c+1)%4<2)?rr:size-1-rr;
-        for(let cc=0;cc<2;cc++){
-          const col=c-cc;
-          if(mat[r][col]===-1){
-            mat[r][col]=bi<bits.length?(bits[bi++])|0:0;
-          }
-        }
-      }
-    }
-  }
-
-  function applyMask(mat,size,mask){
-    for(let r=0;r<size;r++) for(let c=0;c<size;c++){
-      if(mat[r][c]<2){
-        let m=false;
-        if(mask===0) m=(r+c)%2===0;
-        else if(mask===1) m=r%2===0;
-        else if(mask===2) m=c%3===0;
-        else if(mask===3) m=(r+c)%3===0;
-        else if(mask===4) m=(Math.floor(r/2)+Math.floor(c/3))%2===0;
-        else if(mask===5) m=(r*c)%2+(r*c)%3===0;
-        else if(mask===6) m=((r*c)%2+(r*c)%3)%2===0;
-        else if(mask===7) m=((r+c)%2+(r*c)%3)%2===0;
-        if(m) mat[r][c]^=1;
-      }
-    }
-  }
-
-  function encode(text){
-    const bytes=new TextEncoder().encode(text);
-    const version=getVersion(bytes.length);
-    const size=17+version*4;
-    const [ecCount]=EC.M[version];
-
-    // Construir codewords
-    const header=[];
-    // Modo byte = 0100
-    let modeLen=8+(version>=10?16:0);
-    header.push(...[0,1,0,0]); // modo byte
-    // longitud
-    const lb=version<10?8:16;
-    for(let i=lb-1;i>=0;i--) header.push((bytes.length>>i)&1);
-    // datos
-    const dataBits=[...header];
-    for(let b of bytes) for(let i=7;i>=0;i--) dataBits.push((b>>i)&1);
-    // terminador
-    for(let i=0;i<4&&dataBits.length%(8)<4;i++) dataBits.push(0);
-    while(dataBits.length%8) dataBits.push(0);
-
-    const totalDataBytes=(version<=9?[19,34,55,80,108,136,156,194,232,274][version-1]:274);
-    const dataBytes=[];
-    for(let i=0;i<dataBits.length;i+=8) dataBytes.push(parseInt(dataBits.slice(i,i+8).join(''),2));
-    const pads=[0xEC,0x11];
-    while(dataBytes.length<totalDataBytes) dataBytes.push(pads[(dataBytes.length-Math.ceil(dataBits.length/8))%2]);
-
-    const ec=rsEncode(dataBytes,ecCount);
-    const allBytes=[...dataBytes,...ec];
-    const allBits=[];
-    for(let b of allBytes) for(let i=7;i>=0;i--) allBits.push((b>>i)&1);
-
-    // Construir matriz
-    const mat=makeMatrix(size);
-    setFinder(mat,0,0); setFinder(mat,0,size-7); setFinder(mat,size-7,0);
-    setTiming(mat,size);
-    setAlignment(mat,version);
-    mat[4*version+9][8]=1; // dark module
-
-    // Reservar formato
-    for(let i=0;i<9;i++){ if(mat[i][8]===-1) mat[i][8]=2; if(mat[8][i]===-1) mat[8][i]=2; }
-    for(let i=size-8;i<size;i++){ if(mat[i][8]===-1) mat[i][8]=2; if(mat[8][i]===-1) mat[8][i]=2; }
-
-    placeData(mat,size,allBits);
-    applyMask(mat,size,2); // máscara 2: columna%3==0
-    setFormatInfo(mat,size,2);
-
-    return {mat,size};
-  }
-
-  function draw(text,canvas,px){
-    const {mat,size}=encode(text);
-    const quiet=4;
-    const total=(size+quiet*2)*px;
-    canvas.width=canvas.height=total;
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='#fff'; ctx.fillRect(0,0,total,total);
-    ctx.fillStyle='#000';
-    for(let r=0;r<size;r++) for(let c=0;c<size;c++){
-      if(mat[r][c]===1||mat[r][c]===2&&false)
-        ctx.fillRect((c+quiet)*px,(r+quiet)*px,px,px);
-    }
-  }
-
-  return {draw};
-})();
-
 // ══════════════════════════════════════════
-// BOMBEROS — CÓDIGOS
+// BOMBEROS — CÓDIGOS RADIO (Sistema 10)
 // ══════════════════════════════════════════
 const CODIGOS_10 = [
   {cod:'10-1',desc:'Recepción deficiente'},
@@ -1468,6 +1344,26 @@ const SENALES = [
   {sig:'RECALADA',desc:'Retorno al cuartel sin novedad'},
 ];
 
+// ── CÓDIGOS DE EMERGENCIA DEL CUARTEL ──
+const CODIGOS_EMERGENCIA = [
+  {num:1,  desc:'Incendio de vivienda'},
+  {num:2,  desc:'Accidente vehicular'},
+  {num:3,  desc:'Escape de gas'},
+  {num:4,  desc:'Rescate de persona'},
+  {num:5,  desc:'Rescate animal'},
+  {num:6,  desc:'Se necesita chofer'},
+  {num:7,  desc:'Servicio'},
+  {num:8,  desc:'Incendio vehicular'},
+  {num:9,  desc:'Amenaza de bomba'},
+  {num:10, desc:'Accidente Haz-Mat'},
+  {num:11, desc:'Persona herida'},
+  {num:12, desc:'Persona fallecida'},
+  {num:13, desc:'Incendio forestal'},
+  {num:14, desc:'Incendio interfase'},
+  {num:15, desc:'Caída de cables'},
+  {num:16, desc:'Incendio de pastura'},
+];
+
 function renderCodigos(){
   document.getElementById('codigos-grid').innerHTML=CODIGOS_10.map(c=>`
     <div class="codigo-item">
@@ -1478,6 +1374,12 @@ function renderCodigos(){
   document.getElementById('senales-list').innerHTML=`<table><tbody>${
     SENALES.map(s=>`<tr><td style="font-weight:800;color:var(--fire);min-width:100px">${s.sig}</td><td>${s.desc}</td></tr>`).join('')
   }</tbody></table>`;
+
+  document.getElementById('emergencia-grid').innerHTML=CODIGOS_EMERGENCIA.map(c=>`
+    <div class="emergencia-item">
+      <div class="emergencia-num">${c.num}</div>
+      <div class="emergencia-desc">${c.desc}</div>
+    </div>`).join('');
 }
 
 // ══════════════════════════════════════════
